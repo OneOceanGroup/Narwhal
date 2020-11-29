@@ -1,6 +1,9 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, OnDestroy, OnInit} from '@angular/core';
 
 import * as mapboxgl from 'mapbox-gl';
+import {NotificationService} from "./notification.service";
+import {environment} from "../environments/environment";
+import {Subscription} from "rxjs";
 
 @Component({
     selector: 'app-root',
@@ -8,14 +11,20 @@ import * as mapboxgl from 'mapbox-gl';
     styleUrls: ['./app.component.scss']
 })
 
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
 
     map: mapboxgl.Map;
     hardwareRendering = mapboxgl.supported({ failIfMajorPerformanceCaveat: true });
 
-    private apiBaseUrl: string = 'http://127.0.01:6161';
+    private subsciptions: Subscription;
+
+    constructor(private notificationService: NotificationService) {
+    	this.subsciptions = new Subscription();
+	}
 
     ngOnInit() {
+		let self = this;
+
         const mapboxOptions: mapboxgl.MapboxOptions = {
             container: 'map',
             style: {
@@ -83,8 +92,6 @@ export class AppComponent implements OnInit {
         // NavWarnings source
         // *******************************************************************
 
-		let self = this;
-
         this.map.on('load', function() {
 
             this.addSource('navwarnings-source', {
@@ -108,18 +115,13 @@ export class AppComponent implements OnInit {
                 }
             });
 
-            fetch(`${self.apiBaseUrl}/api/navwarnings`)
-                .then(response => response.json())
-                .then(data => {
-                    data = data.map(d => d.data);
 
-                    const geoJson = {
-                        type: 'FeatureCollection',
-                        features: data
-                    };
-
-                    this.getSource('navwarnings-source').setData(geoJson);
-                });
+            let map = this;
+            self.loadNavWarnings(map);
+			self.subscribe(self.notificationService.navwarningsUpdateObservable.subscribe(() => {
+				console.log('reloading navwarnings');
+				self.loadNavWarnings(map);
+			}));
         });
 
         // *******************************************************************
@@ -159,43 +161,14 @@ export class AppComponent implements OnInit {
                 }
             });
 
-            var groupBy = function(xs, key) {
-                return xs.reduce(function(rv, x) {
-                    (rv[x[key]] = rv[x[key]] || []).push(x);
-                    return rv;
-                }, {});
-            };
+			let map = this;
+			self.loadTrackingPoints(map);
+			self.subscribe(self.notificationService.trackingUpdateObservable.subscribe(() => {
+				console.log('reloading tracking points');
+				self.loadTrackingPoints(map);
+			}));
 
-            fetch(`${self.apiBaseUrl}/api/tracking?from=2018-04-23&to=2018-04-24`)
-                .then(response => response.json())
-                .then(data => {
-                    data = groupBy(data, 'vessel');
-
-                    let lines = []
-
-                    for (const [vessel, points] of Object.entries(data)) {
-                        lines.push({
-                            "type" : "Feature",
-                            "properties": {
-                                "color": "hsl(" + (((vessel as any) * 1) % 255) + ", 50%, 50%)",
-                                "description": "Vessel " + vessel
-                            },
-                            "geometry" : {
-                                "type" : "LineString",
-                                "coordinates" : (points as any).map(p => [ p.longitude, p.latitude ])
-                            }
-                        });
-                    }
-
-                    var geoJson = {
-                        'type': 'FeatureCollection',
-                        'features': lines
-                    };
-
-                    this.getSource('tracking-source').setData(geoJson);
-                });
-
-            var popup = new mapboxgl.Popup({
+			var popup = new mapboxgl.Popup({
                 closeButton: false,
                 closeOnClick: false
             });
@@ -217,4 +190,65 @@ export class AppComponent implements OnInit {
             });
         });
     }
+
+	ngOnDestroy(): void {
+    	this.subsciptions.unsubscribe();
+	}
+
+	private loadNavWarnings(map: any) {
+		fetch(`${environment.apiBaseUrl}/api/navwarnings`)
+			.then(response => response.json())
+			.then(data => {
+				data = data.map(d => d.data);
+
+				const geoJson = {
+					type: 'FeatureCollection',
+					features: data
+				};
+
+				map.getSource('navwarnings-source').setData(geoJson);
+			});
+	}
+
+	private loadTrackingPoints(map: any) {
+		function groupBy (xs, key) {
+			return xs.reduce(function(rv, x) {
+				(rv[x[key]] = rv[x[key]] || []).push(x);
+				return rv;
+			}, {});
+		}
+
+		fetch(`${environment.apiBaseUrl}/api/tracking?from=2018-04-23&to=2018-04-24`)
+			.then(response => response.json())
+			.then(data => {
+				data = groupBy(data, 'vessel');
+
+				let lines = []
+
+				for (const [vessel, points] of Object.entries(data)) {
+					lines.push({
+						"type": "Feature",
+						"properties": {
+							"color": "hsl(" + (((vessel as any) * 1) % 255) + ", 50%, 50%)",
+							"description": "Vessel " + vessel
+						},
+						"geometry": {
+							"type": "LineString",
+							"coordinates": (points as any).map(p => [p.longitude, p.latitude])
+						}
+					});
+				}
+
+				var geoJson = {
+					'type': 'FeatureCollection',
+					'features': lines
+				};
+
+				map.getSource('tracking-source').setData(geoJson);
+			});
+	}
+
+	private subscribe(subscription: Subscription): void {
+    	this.subsciptions.add(subscription);
+	}
 }
