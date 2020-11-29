@@ -15,7 +15,7 @@ using Narwhal.Service.Services;
 namespace Narwhal.Service.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("/api/tracking")]
     public class TrackingController : ControllerBase
     {
         private readonly ILogger<TrackingController> _logger;
@@ -32,7 +32,7 @@ namespace Narwhal.Service.Controllers
             _messagingService = messagingService;
         }
 
-        [HttpGet("Get")]
+        [HttpGet("")]
         public IEnumerable<TrackingPoint> Get(DateTime? from = null, DateTime? to = null, int limit = 10000)
         {
             from ??= DateTime.MinValue;

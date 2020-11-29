@@ -17,7 +17,7 @@ using Narwhal.Service.Services;
 namespace Narwhal.Service.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("/api/navwarnings")]
     public class NavWarningsController : ControllerBase
     {
         private readonly ILogger<NavWarningsController> _logger;
@@ -34,7 +34,7 @@ namespace Narwhal.Service.Controllers
             _messagingService = messagingService;
         }
 
-        [HttpGet("Get")]
+        [HttpGet("")]
         public IEnumerable<NavWarning> Get(int limit = 100)
         {
             var navWarningCollection = _databaseService.GetNavWarningCollection();

@@ -13,6 +13,8 @@ export class AppComponent implements OnInit {
     map: mapboxgl.Map;
     hardwareRendering = mapboxgl.supported({ failIfMajorPerformanceCaveat: true });
 
+    private apiBaseUrl: string = 'http://127.0.01:6161';
+
     ngOnInit() {
         const mapboxOptions: mapboxgl.MapboxOptions = {
             container: 'map',
@@ -81,6 +83,8 @@ export class AppComponent implements OnInit {
         // NavWarnings source
         // *******************************************************************
 
+		let self = this;
+
         this.map.on('load', function() {
 
             this.addSource('navwarnings-source', {
@@ -104,7 +108,7 @@ export class AppComponent implements OnInit {
                 }
             });
 
-            fetch('/api/navwarnings/get')
+            fetch(`${self.apiBaseUrl}/api/navwarnings`)
                 .then(response => response.json())
                 .then(data => {
                     data = data.map(d => d.data);
@@ -162,7 +166,7 @@ export class AppComponent implements OnInit {
                 }, {});
             };
 
-            fetch('/api/tracking/get?from=2018-04-23&to=2018-04-24')
+            fetch(`${self.apiBaseUrl}/api/tracking?from=2018-04-23&to=2018-04-24`)
                 .then(response => response.json())
                 .then(data => {
                     data = groupBy(data, 'vessel');
@@ -195,18 +199,18 @@ export class AppComponent implements OnInit {
                 closeButton: false,
                 closeOnClick: false
             });
-                
+
             this.on('mouseenter', 'tracking-points-layer', function (e) {
                 // Change the cursor style as a UI indicator.
                 this.getCanvas().style.cursor = 'pointer';
-                    
+
                 var description = e.features[0].properties.description;
 
                 // Populate the popup and set its coordinates
                 // based on the feature found.
                 popup.setLngLat(e.lngLat).setHTML(description).addTo(this);
             });
-                
+
             this.on('mouseleave', 'tracking-points-layer', function () {
                 this.getCanvas().style.cursor = '';
                 popup.remove();
