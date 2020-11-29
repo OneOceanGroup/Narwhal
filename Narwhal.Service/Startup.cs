@@ -25,9 +25,13 @@ namespace Narwhal.Service
             services.AddCors(options =>
             {
                 options.AddPolicy(name: _corsPolicy, builder =>
-                    {
-                        builder.WithOrigins("http://127.0.0.1:6162");
-                    });
+                {
+                    builder
+                        .WithOrigins("http://127.0.0.1:6162")
+                        .AllowCredentials()
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
             });
             
             services.AddControllers();
@@ -35,10 +39,11 @@ namespace Narwhal.Service
 
             services.AddSingleton<DatabaseService>();
             services.AddSingleton<MessagingService>();
+            services.AddSingleton<NotificationService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, NotificationService notificationService)
         {
             if (env.IsDevelopment())
             {
@@ -52,10 +57,13 @@ namespace Narwhal.Service
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapHub<NotificationHub>("/notificationHub");
             });
 
             // Debug gadget
             app.Use(r => c => r(c));
+
+            notificationService.Initialize();
         }
     }
 }
